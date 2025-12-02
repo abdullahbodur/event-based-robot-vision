@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  ros:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dvs_integrator_ros
+    volumes:
+      - ./catkin_ws/src:/catkin_ws/src:rw
+      - ./catkin_ws/devel:/catkin_ws/devel:rw
+      - ./catkin_ws/build:/catkin_ws/build:rw
+      - ./data:/catkin_ws/data:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    working_dir: /catkin_ws
+    stdin_open: true
+    tty: true
+    environment:
+      # X11 forwarding (adjust for your system)
+      # For Linux: use DISPLAY=:0
+      # For macOS: use your Mac's IP address (e.g., DISPLAY=192.168.1.100:0)
+      # For Windows: use DISPLAY=host.docker.internal:0
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_INDIRECT=1
+    # Use host network for X11 forwarding
+    network_mode: host
+    command: bash
+
