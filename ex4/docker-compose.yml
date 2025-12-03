@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   ros:
     build:
@@ -7,10 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: dvs_integrator_ros
     volumes:
-      - ./catkin_ws/src:/catkin_ws/src:rw
-      - ./catkin_ws/devel:/catkin_ws/devel:rw
-      - ./catkin_ws/build:/catkin_ws/build:rw
-      - ./data:/catkin_ws/data:ro
+      - ${PWD}/catkin_ws/src:/catkin_ws/src:rw
+      - ${PWD}/catkin_ws/devel:/catkin_ws/devel:rw
+      - ${PWD}/catkin_ws/build:/catkin_ws/build:rw
+      - ${PWD}/data:/catkin_ws/data:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     working_dir: /catkin_ws
     stdin_open: true
