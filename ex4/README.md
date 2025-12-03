@@ -1,4 +1,4 @@
-# dvs_integrator
+## DVS Integrator Setup Guide - Exc4
 
 Event-by-event processing in ROS C++ for the purpose of image reconstruction (using a high pass filter). Based on the paper by Scheerlinck et al., ACCV 2018.
 
@@ -17,15 +17,25 @@ ex4/
 │   ├── include/
 │   ├── launch/
 │   └── dependencies.yaml
-├── catkin_ws/             # ROS workspace (created during build)
-│   ├── src/              # ROS packages
-│   ├── devel/            # Development files
-│   └── build/            # Build files
+├── dvs_displayer/         # Optional: Event visualization package (from Exercise 2)
+│   ├── src/
+│   ├── include/
+│   └── launch/
+├── catkin_ws/             # ROS workspace (created by make setup-ws)
+│   ├── src/              # ROS packages (set up by make setup-ws)
+│   │   ├── dvs_integrator/  # Copied from dvs_integrator_skeleton
+│   │   ├── dvs_displayer/   # Copied from dvs_displayer (if available)
+│   │   ├── rpg_dvs_ros/     # Cloned from GitHub (contains dvs_msgs)
+│   │   └── catkin_simple/   # Cloned from GitHub (build tool)
+│   ├── devel/            # Development files (generated during build)
+│   └── build/            # Build files (generated during build)
 └── data/                 # Bag files directory (created automatically)
     └── simulation_3planes.bag  # Downloaded during Docker build
 ```
 
-**Note:** The `dvs_integrator_skeleton` package is not included in this repository. You need to extract `abdullahbodur.zip` and copy the `dvs_integrator_skeleton` folder to the `ex4` folder.
+**Note:** 
+- The `dvs_integrator_skeleton` package is not included in this repository. You need to extract `abdullahbodur.zip` and copy the `dvs_integrator_skeleton` folder to the `ex4` folder.
+- If you have `dvs_displayer` (from Exercise 2 or course materials), place it in the root folder (`ex4/dvs_displayer/`). It will be automatically copied to `catkin_ws/src/dvs_displayer/` when you run `make setup-ws`.
 
 ## Slides and videos
 - [Slides](https://drive.google.com/file/d/1MtbzVMKebJq2I0FaG6CtmH0gEomAJ19h/view)
@@ -65,33 +75,98 @@ ex4/
    cd event-based-robot-vision/ex4
    ```
 
-2. **Extract and copy the dvs_integrator_skeleton package:**
+2. **Extract and copy packages:**
    ```bash
    # Extract abdullahbodur.zip
    unzip abdullahbodur.zip
    
    # Copy dvs_integrator_skeleton folder to ex4 folder
    cp -r abdullahbodur/dvs_integrator_skeleton ./dvs_integrator_skeleton
+   
+   # Copy dvs_displayer folder to ex4 folder (if available from Exercise 2)
+   cp -r abdullahbodur/dvs_displayer ./dvs_displayer
    ```
    
-   The `dvs_integrator_skeleton` package must be extracted from `abdullahbodur.zip` and copied to the `ex4` folder.
+   The `dvs_integrator_skeleton` package must be extracted from `abdullahbodur.zip` and copied to the `ex4` folder. If you have `dvs_displayer` (from Exercise 2 or course materials), also copy it to the `ex4` folder - it will be automatically copied to `catkin_ws/src/` during workspace setup.
 
-3. **Build Docker image** (downloads dependencies and bag file):
+3. **Set up catkin workspace on host:**
+   ```bash
+   make setup-ws
+   ```
+   This will:
+   - Create `catkin_ws/src/` directory structure
+   - Copy `dvs_integrator_skeleton` from root folder to `catkin_ws/src/dvs_integrator`
+   - Copy `dvs_displayer` from root folder to `catkin_ws/src/dvs_displayer` (if it exists in root)
+   - Clone dependencies:
+     - `catkin_simple` (build tool) from GitHub
+     - `rpg_dvs_ros` (contains: `dvs_msgs`, `dvs_renderer`, `davis_ros_driver`, etc.) from GitHub
+   - Show what packages are in the workspace
+   
+   **Note:** Place `dvs_displayer` in the root folder (`ex4/dvs_displayer/`) if you have it. The `setup-ws` target will automatically copy it to `catkin_ws/src/dvs_displayer/`.
+
+4. **Build Docker image** (downloads bag file and sets up container):
    ```bash
    make docker-build
    ```
    This will:
    - Download ROS Noetic base image
-   - Install dependencies (catkin_simple, rpg_dvs_ros)
+   - Install system dependencies (git, wget, catkin-tools, vcstool, rosdep)
+   - Copy `dvs_integrator_skeleton` to container's `/catkin_ws/src/dvs_integrator`
+   - Install ROS package dependencies via `rosdep`
    - Download the `simulation_3planes.bag` file
 
-4. **Build the ROS workspace:**
+5. **Build the ROS workspace:**
    ```bash
    make build
    ```
-   This compiles all ROS packages in the workspace.
+   This compiles the necessary ROS packages in the workspace:
+   - `catkin_simple` (build tool)
+   - `dvs_msgs` (message definitions)
+   - `dvs_integrator` (main package)
+   - `dvs_displayer` (if available)
+   
+   **Note:** The build process only builds the packages needed for the integrator. Driver packages that require `libcaer` are skipped.
 
-5. **Setup X11 for GUI** (macOS only):
+### Catkin Workspace Structure
+
+The `catkin_ws/` folder structure is set up as follows:
+
+```
+catkin_ws/
+├── src/                    # Source packages (mounted from host to container)
+│   ├── dvs_integrator/     # Main package (from dvs_integrator_skeleton)
+│   ├── dvs_displayer/      # Optional: Event visualization (from Exercise 2)
+│   ├── rpg_dvs_ros/        # DVS ROS packages (cloned by Dockerfile)
+│   │   ├── dvs_msgs/       # Event message definitions
+│   │   ├── dvs_renderer/   # Event visualization renderer
+│   │   ├── davis_ros_driver/  # DAVIS camera driver
+│   │   └── ...             # Other rpg_dvs_ros packages
+│   └── catkin_simple/      # Build tool (cloned by Dockerfile)
+├── devel/                  # Development files (generated during build)
+└── build/                  # Build files (generated during build)
+```
+
+**How it works:**
+- **Makefile (`setup-ws`)**: Sets up the workspace on the host machine by:
+  - Copying packages from root folder to `catkin_ws/src/`
+  - Cloning dependencies (`catkin_simple`, `rpg_dvs_ros`) from GitHub
+- **Dockerfile**: Sets up the Docker image with ROS Noetic and system dependencies
+- **docker-compose.yml**: Mounts `./catkin_ws/src` from host to `/catkin_ws/src` in container, so your local changes are reflected
+
+**Required packages in `catkin_ws/src/`:**
+- `dvs_integrator/` - Main package (required, copied from root `dvs_integrator_skeleton/`)
+- `catkin_simple/` - Build tool (required, cloned by `setup-ws`)
+- `rpg_dvs_ros/` - DVS ROS packages (required, cloned by `setup-ws`, contains `dvs_msgs`)
+
+**Optional packages:**
+- `dvs_displayer/` - Event visualization (optional, copied from root `dvs_displayer/` if it exists)
+
+**Package locations:**
+- Place `dvs_integrator_skeleton/` in the root folder (`ex4/`) - it will be copied to `catkin_ws/src/dvs_integrator/` by `make setup-ws`
+- Place `dvs_displayer/` in the root folder (`ex4/`) if you have it - it will be copied to `catkin_ws/src/dvs_displayer/` by `make setup-ws`
+- `rpg_dvs_ros/` and `catkin_simple/` are automatically cloned by `make setup-ws` from GitHub
+
+6. **Setup X11 for GUI** (macOS only):
    ```bash
    # Start XQuartz
    open -a XQuartz
@@ -277,3 +352,10 @@ rosrun rqt_reconfigure rqt_reconfigure
 - Make sure dependencies are built first: `catkin build catkin_simple` then `catkin build dvs_msgs`
 - Clean and rebuild: `rm -rf build/ devel/` then `catkin build`
 - For Docker: Make sure to source setup.bash: `source /catkin_ws/devel/setup.bash`
+- If you see "libcaer" errors: This is expected - driver packages require libcaer, but `dvs_integrator` and `dvs_displayer` don't need it. The build process skips these packages automatically.
+
+### Docker Mount Issues on macOS
+- If you see "file exists" errors when running `make build`:
+  - Try: `rm -rf catkin_ws && make setup-ws`
+  - Or restart Docker Desktop
+  - Ensure Docker Desktop has file sharing enabled for your project directory
